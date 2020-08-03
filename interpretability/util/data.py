@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize, PowerNorm, SymLogNorm
 
 
-
 class PartialSampler(Sampler):
     def __init__(self, data_source, idx_start=None, idx_end=None, verbose=True):
         self.data_source = data_source
@@ -48,9 +47,13 @@ class PartialSampler(Sampler):
             "idx_end": self.idx_end
         }
 
-    def load_state_dict(self, state):
+    def load_state_dict(self, state, verbose=True):
         self.idx_cursor = state["idx_cursor"] + 1
         self.idx_end = state["idx_end"]
+
+        if verbose:
+            print(f"Start at index {self.idx_cursor} / {len(self.data_source)}")
+            print(f"End at index {self.idx_end} / {len(self.data_source)}")
 
     @staticmethod
     def from_state_dict(data_source, state, verbose=True):

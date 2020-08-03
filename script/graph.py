@@ -8,7 +8,7 @@ import click
 # To import interpretability packages
 sys.path.append(os.getcwd())
 
-from interpretability.metric import Degradation
+from interpretability.metric import degradation
 
 from interpretability.util.data import save_degradation_results
 
@@ -75,7 +75,7 @@ def main(clamp, checkpoint_dir, output=None):
                 morf.clamp_(min=0, max=1)
                 lerf.clamp_(min=0, max=1)
 
-            degradation_score = Degradation.score(morf, lerf)
+            degradation_score = degradation.score(morf, lerf)
             results[method_name] = (morf.cpu(), lerf.cpu(), degradation_score)
 
             print(f"{method_name}: {degradation_score:.3f}")
