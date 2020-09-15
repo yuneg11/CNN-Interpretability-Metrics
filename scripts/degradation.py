@@ -1,7 +1,6 @@
 import os
 import sys
 from argparse import ArgumentParser
-from click.core import Argument
 
 import torch
 
