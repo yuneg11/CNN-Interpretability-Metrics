@@ -4,7 +4,7 @@ from torchvision import models
 
 default_device = "cuda" if torch.cuda.is_available() else "cpu"
 
-models_list = ["vgg16", "resnet18", "resnet50", "googlenet"]
+models_list = ["vgg16", "resnet18", "resnet50", "googlenet", "alexnet"]
 
 
 def get_model(model_name: str, device: str = default_device):
@@ -32,6 +32,11 @@ def get_model(model_name: str, device: str = default_device):
         model = model_pool.googlenet(pretrained=True).to(device)
         model.options = {
             "target_layer": model.inception5b
+        }
+    elif lowered_model_name == "alexnet":
+        model = model_pool.alexnet(pretrained=True).to(device)
+        model.options = {
+            "target_layer": model.features
         }
     else:
         raise ValueError(f"Invalid model name '{model_name}' (Supported models: {models_list})")

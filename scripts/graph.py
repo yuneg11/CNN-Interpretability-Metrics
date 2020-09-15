@@ -1,19 +1,15 @@
 import os
-from os import path
 import sys
+from argparse import ArgumentParser
 
 import torch
-import click
 
 # To import interpretability packages
 sys.path.append(os.getcwd())
 
-from interpretability.metric import degradation
+from interpretability.metrics import degradation
+from interpretability.utils.plot import plot_degradation_results
 
-from interpretability.util.data import save_degradation_results
-
-
-default_checkpoint_dir = "result/degradation"
 
 method_class = {
     # "DeconvNet": None,
@@ -39,15 +35,17 @@ method_class = {
 }
 
 
-@click.command()
-@click.option("-t", "--clamp", type=click.BOOL, required=False, default=False, help="Clamp degradation results from 0 to 1")
-@click.option("-c", "--checkpoint-dir", type=click.STRING, required=False, default=default_checkpoint_dir, help="Path to load/save checkpoint")
-@click.option("-o", "--output", type=click.STRING, required=False, help="Name of result graph output file")
-def main(clamp, checkpoint_dir, output=None):
-    if output is None:
-        output = f"{checkpoint_dir}/result.png"
+def main(raw_args):
+    parser = ArgumentParser(description="Degradation Graph Plot")
+    parser.add_argument("-s", "--save-dir", required=True, help="Path to load result")
+    parser.add_argument("-o", "--output", default=None, help="Name of result graph output file")
+    parser.add_argument("--clamp", action="store_true", default=False,  help="Clamp degradation results from 0 to 1")
+    args = parser.parse_args(raw_args)
 
-    file_list = [f for f in os.listdir(checkpoint_dir) if f.endswith(".pt")]
+    if args.output is None:
+        args.output = f"{args.save_dir}/result.png"
+
+    file_list = [f for f in os.listdir(args.save_dir) if f.endswith(".pt")]
 
     for filename in file_list:
         # method_name = filename.split("-")[1].split(".")[0]
@@ -61,17 +59,13 @@ def main(clamp, checkpoint_dir, output=None):
     # for method_name in method_class.keys():
         filename = method_class[method_name]
         if filename is not None:
-            data = torch.load(f"{checkpoint_dir}/{filename}")
-            if type(data) is dict:
-                raw_morf, raw_lerf = data["morf"], data["lerf"]
-            else:
-                # For legacy support
-                raw_morf, raw_lerf = data[0], data[1]
+            data = torch.load(f"{args.save_dir}/{filename}")
+            raw_morf, raw_lerf = data["morf"], data["lerf"]
 
             morf = (raw_morf - raw_morf[-1]) / (raw_morf[0] - raw_morf[-1])
             lerf = (raw_lerf - raw_lerf[-1]) / (raw_lerf[0] - raw_lerf[-1])
 
-            if clamp:
+            if args.clamp:
                 morf.clamp_(min=0, max=1)
                 lerf.clamp_(min=0, max=1)
 
@@ -80,9 +74,9 @@ def main(clamp, checkpoint_dir, output=None):
 
             print(f"{method_name}: {degradation_score:.3f}")
 
-    save_degradation_results(output, results)
-    print(f"Result output: '{output}'")
+    plot_degradation_results(results, filename=args.output)
+    print(f"Result output: '{args.output}'")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

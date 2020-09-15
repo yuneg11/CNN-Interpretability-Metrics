@@ -1,3 +1,4 @@
 data/
 cloned/
-result/
+*.pt
+*.png

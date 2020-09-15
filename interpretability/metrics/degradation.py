@@ -32,7 +32,7 @@ class Checkpointer:
         torch.save({
             "morf": morf.cpu(),
             "lerf": lerf.cpu(),
-            "sampler_state": sampler_state
+            "sampler_state": sampler_state,
         }, filename)
 
         if self.prev_filename is not None:
@@ -48,17 +48,17 @@ class Checkpointer:
         return {
             "morf": morf,
             "lerf": lerf,
-            "sampler_state": self.sampler_state
+            "sampler_state": self.sampler_state,
         }
 
 
-def _perturb(model, inputs_tile, covers_tile, targets, tile_rank, fold, stride, mode="MoRF", use_probs=True, progbar=True):
-    if mode == "MoRF":
+def _perturb(model, inputs_tile, covers_tile, targets, tile_rank, fold, stride, mode="morf", use_probs=True, progbar=True):
+    if mode == "morf":
         get_target_idx = lambda idx: idx
-    elif mode == "LeRF":
+    elif mode == "lerf":
         get_target_idx = lambda idx: -(idx + 1)
     else:
-        raise ValueError(f"Invalid mode '{mode}'. Supported mode: ['MoRF', 'LeRF']")
+        raise ValueError(f"Invalid mode '{mode}'. Supported mode: ['morf', 'lerf']")
 
     index0 = torch.arange(inputs_tile.shape[0], dtype=torch.long)
     history = torch.zeros((covers_tile.shape[2]), device=inputs_tile.device)
@@ -108,8 +108,8 @@ def _baseline(inputs_tile, baseline):
         raise NotImplementedError
 
 
-def evaluate(attribution, data_loader, tile_size=14, baseline="mean", perturb_stride=5, checkpointer=None, desc="Eval", progbar=True):
-    child_progbar = progbar
+def evaluate(attribution, data_loader, tile_size=14, baseline="mean", perturb_stride=5, checkpointer=None, reduce_mode="absmean", progbar=True):
+    child_progbar = False # progbar
 
     model, attribute = attribution.forward_func, attribution.attribute
     device = next(model.parameters()).device
@@ -122,16 +122,25 @@ def evaluate(attribution, data_loader, tile_size=14, baseline="mean", perturb_st
         if state_dict["sampler_state"] is not None:
             data_loader.sampler.load_state_dict(state_dict["sampler_state"])
 
-    for inputs, targets in tqdm(data_loader, desc=f"{desc:15s}", disable=not progbar, ncols=70):
+    for inputs, targets in tqdm(data_loader, desc=f"{type(attribution).__name__:15s}", disable=not progbar, ncols=70):
         assert inputs.shape[2] % tile_size == 0 and inputs.shape[3] % tile_size == 0, "Size mismatch"
 
         inputs, targets = inputs.to(device=device), targets.to(device=device)
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            heatmaps = F.interpolate(attribute(inputs, target=targets), size=inputs.shape[2:4], mode="bilinear", align_corners=False)
+            if reduce_mode == "absmax":
+                raw_heatmaps = attribute(inputs, target=targets).abs().max(dim=1, keepdim=True)[0]
+            elif reduce_mode == "absmean":
+                raw_heatmaps = attribute(inputs, target=targets).abs()
+            elif reduce_mode == "mean":
+                raw_heatmaps = attribute(inputs, target=targets)
+            else:
+                raise ValueError(f"reduce_mode '{reduce_mode}' is not supported.")
 
         with torch.no_grad():
+            heatmaps = F.interpolate(raw_heatmaps, size=inputs.shape[2:4], mode="bilinear", align_corners=False)
+
             tile_num = int(inputs.shape[2] / tile_size)
 
             unfold = Unfold(kernel_size=tile_num, dilation=tile_size)
@@ -142,12 +151,10 @@ def evaluate(attribution, data_loader, tile_size=14, baseline="mean", perturb_st
             inputs_tile = unfold(inputs).view(inputs.shape[0], inputs.shape[1], tile_num * tile_num, -1)
             covers_tile = _baseline(inputs_tile, baseline)
 
-            morf_b = _perturb(model, inputs_tile.clone(), covers_tile, targets,
-                                            tile_rank, fold, stride=perturb_stride, mode="MoRF", progbar=child_progbar)
+            morf_b = _perturb(model, inputs_tile.clone(), covers_tile, targets, tile_rank, fold, stride=perturb_stride, mode="morf", progbar=child_progbar)
             morf = morf_b if morf is None else morf + morf_b
 
-            lerf_b = _perturb(model, inputs_tile, covers_tile, targets,
-                                            tile_rank, fold, stride=perturb_stride, mode="LeRF", progbar=child_progbar)
+            lerf_b = _perturb(model, inputs_tile, covers_tile, targets, tile_rank, fold, stride=perturb_stride, mode="lerf", progbar=child_progbar)
             lerf = lerf_b if lerf is None else lerf + lerf_b
 
         if checkpointer is not None:

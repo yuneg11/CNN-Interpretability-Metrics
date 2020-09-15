@@ -1,93 +1,25 @@
-import torch
-
-from torch.utils.data import Sampler, DataLoader
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
-
 import math
+
+import torch
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize, PowerNorm, SymLogNorm
 
 
-class PartialSampler(Sampler):
-    def __init__(self, data_source, idx_start=None, idx_end=None, verbose=True):
-        self.data_source = data_source
+def plot_images(images_dict, filename=None, nrows=None, ncols=None, figsize=None, cmap="jet"):
+    fig_num = len(images_dict)
+    if ncols is None and nrows is None:
+        ncols = math.ceil(math.sqrt(fig_num))
+        nrows = math.ceil(fig_num / ncols)
+    elif ncols is not None and nrows is None:
+        nrows = math.ceil(fig_num / ncols)
+    elif ncols is None and nrows is not None:
+        ncols = math.ceil(fig_num / nrows)
 
-        if idx_start is not None:
-            assert idx_start < len(data_source), \
-                    f"Start index '{idx_start}' is larger than the length of dataset '{len(data_source)}'"
-            self.idx_cursor = idx_start
-            if verbose:
-                print(f"Start at index {self.idx_cursor} / {len(data_source)}")
-        else:
-            self.idx_cursor = 0
-
-        if idx_end is not None:
-            assert idx_end <= len(data_source), \
-                    f"End index '{idx_end}' is larger than the length of dataset '{len(data_source)}'"
-            self.idx_end = idx_end
-            if verbose:
-                print(f"End at index {self.idx_end} / {len(data_source)}")
-        else:
-            self.idx_end = len(data_source)
-
-    def __iter__(self):
-        idx_start = self.idx_cursor
-        for idx in range(idx_start, self.idx_end):
-            self.idx_cursor = idx
-            yield idx
-
-    def __len__(self):
-        return self.idx_end - self.idx_cursor
-
-    def state_dict(self):
-        return {
-            "idx_cursor": self.idx_cursor,
-            "idx_end": self.idx_end
-        }
-
-    def load_state_dict(self, state, verbose=True):
-        self.idx_cursor = state["idx_cursor"] + 1
-        self.idx_end = state["idx_end"]
-
-        if verbose:
-            print(f"Start at index {self.idx_cursor} / {len(self.data_source)}")
-            print(f"End at index {self.idx_end} / {len(self.data_source)}")
-
-    @staticmethod
-    def from_state_dict(data_source, state, verbose=True):
-
-        return PartialSampler(data_source, idx_start=state["idx_cursor"]+1, idx_end=state["idx_end"], verbose=verbose)
-
-
-def get_imagenet_loader(imagenet_dir, batch_size, normalize=True, shuffle=False, sampler_state=None, verbose=True):
-    transform_list = [
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor()
-    ]
-    if normalize:
-        transform_list.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-
-    image_data = ImageFolder(imagenet_dir, transform=transforms.Compose(transform_list))
-
-    if verbose:
-        print(f"{len(image_data.classes)} classes / {len(image_data.samples)} samples")
-
-    if sampler_state is None:
-        sampler = PartialSampler(image_data, verbose=verbose)
-    else:
-        sampler = PartialSampler.from_state_dict(image_data, sampler_state, verbose=verbose)
-
-    return DataLoader(image_data, batch_size=batch_size, shuffle=shuffle, sampler=sampler)
-
-
-def save_images(filename, images_dict, nrows, ncols, figsize=None, cmap="jet"):
     if figsize is None:
         figsize = (3 * ncols, 3 * nrows)
 
-    _, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
+    fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
     axes = ax.ravel()
 
     for idx, (name, image) in enumerate(images_dict.items()):
@@ -96,13 +28,36 @@ def save_images(filename, images_dict, nrows, ncols, figsize=None, cmap="jet"):
         axes[idx].axis("off")
 
     plt.tight_layout()
-    plt.savefig(filename)
+
+    if filename == "inline" or filename is None:
+        plt.show()
+    else:
+        fig.savefig(filename)
+        plt.close(fig)
 
 
-def save_degradation_results(filename, results_dict, title=None):
+def plot_degradation_results(results_dict, filename=None, ncols=None, nrows=None, title=None):
+    r"""
+    Args:
+        results_dict: Dict[Tuple[Tensor, Tensor, Float]] -> Dict key = Heatmap Name
+                                                            Tuple = (MoRF, LeRF, Score)
+                                                            MoRF = 1D Tensor
+                                                            LeRF = 1D Tensor
+                                                            Score = Float
+            EX) results_dict = {
+                    "GradCam": (Tensor([1.0, 0.4, 0.3, 0.2, 0.1, 0.0]), Tensor([1.0, 0.9, 0.8, 0.7, 0.6, 0.0]), 0.5),
+                    "Saliency": (Tensor([1.0, 0.5, 0.4, 0.3, 0.2, 0.0]), Tensor([1.0, 0.8, 0.7, 0.6, 0.5, 0.0]), 0.3),
+                }
+    """
+
     fig_num = len(results_dict)
-    ncols = math.ceil(math.sqrt(fig_num))
-    nrows = math.ceil(fig_num / ncols)
+    if ncols is None and nrows is None:
+        ncols = math.ceil(math.sqrt(fig_num))
+        nrows = math.ceil(fig_num / ncols)
+    elif ncols is not None and nrows is None:
+        nrows = math.ceil(fig_num / ncols)
+    elif ncols is None and nrows is not None:
+        ncols = math.ceil(fig_num / nrows)
 
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(4 * ncols, 4 * nrows), constrained_layout=True, squeeze=False)
     if title is not None:
@@ -113,7 +68,7 @@ def save_degradation_results(filename, results_dict, title=None):
         morf, lerf = morf.cpu().numpy(), lerf.cpu().numpy()
 
         target_axes = axes[method_idx // ncols, method_idx % ncols]
-        target_axes.set(title=name, xlabel="x̄ - degradation of x", ylabel="s(x̄) - normalized score")
+        target_axes.set(title=name, xlabel="x̄ - degradation of x", ylabel="s(x̄) - scaled score")
         target_axes.plot(x_axis, lerf, label="LeRF")
         target_axes.plot(x_axis, morf, label="MoRF")
         target_axes.fill_between(x_axis, morf, lerf, facecolor="gray", alpha=0.5)
@@ -125,13 +80,25 @@ def save_degradation_results(filename, results_dict, title=None):
         target_axes = axes[idx // ncols, idx % ncols]
         target_axes.axis("off")
 
-    if filename == "inline":
+    if filename == "inline" or filename is None:
         plt.show()
     else:
         fig.savefig(filename)
+        plt.close(fig)
 
 
-def save_heatmaps(filename, heatmaps_dict, vertical=False, cmap="BlWhRd", outlier_percent=0.02):
+def plot_heatmaps(heatmaps_dict, filename=None, vertical=False, cmap="BlWhRd", outlier_percent=0.02):
+    r"""
+    Args:
+        heatmaps_dict: Dict[Tensor] -> Tensor shape = N x C x H x W
+                                       Dict key = Heatmap Name
+
+            EX) heatmaps_dict = {
+                    "GradCam": Tensor(8 x 3 x 224 x 224),
+                    "Saliency": Tensor(8 x 3 x 224 x 224),
+                }
+    """
+
     nrows = next(iter(heatmaps_dict.values())).shape[0]
     ncols = len(heatmaps_dict)
 
@@ -185,7 +152,8 @@ def save_heatmaps(filename, heatmaps_dict, vertical=False, cmap="BlWhRd", outlie
 
     fig.tight_layout()
 
-    if filename == "inline":
+    if filename == "inline" or filename is None:
         fig.show()
     else:
         fig.savefig(filename)
+        plt.close(fig)

@@ -8,9 +8,7 @@ def _get_attribute(
     default_kwargs: dict = {}
 ) -> Callable:
     def _attribute(*args, **kwargs):
-        # if len(args) == 0:
-        #     args = default_args
-        return attribute(*args, **{ **default_kwargs, **kwargs })
+        return attribute(*args, **{**default_kwargs, **kwargs})
     return _attribute
 
 
@@ -50,7 +48,7 @@ def Occlusion(model, attribute_kwargs={}):
         "strides": 14,
         "sliding_window_shapes": (3, 14, 14)
     }
-    return get_captum_attribution(attr.Occlusion, model, attribute_kwargs={ **default_attribute_kwargs, **attribute_kwargs })
+    return get_captum_attribution(attr.Occlusion, model, attribute_kwargs={**default_attribute_kwargs, **attribute_kwargs})
 
 
 def LayerGradCam(model, layer=None, device_ids=None, attribute_kwargs={}):
