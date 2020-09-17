@@ -39,6 +39,8 @@ def main(raw_args):
     parser = ArgumentParser(description="Degradation Graph Plot")
     parser.add_argument("-s", "--save-dir", required=True, help="Path to load result")
     parser.add_argument("-o", "--output", default=None, help="Name of result graph output file")
+    parser.add_argument("-c", "--ncols", type=int, default=None)
+    parser.add_argument("-r", "--nrows", type=int, default=None)
     parser.add_argument("--clamp", action="store_true", default=False,  help="Clamp degradation results from 0 to 1")
     args = parser.parse_args(raw_args)
 
@@ -74,7 +76,7 @@ def main(raw_args):
 
             print(f"{method_name}: {degradation_score:.3f}")
 
-    plot_degradation_results(results, filename=args.output)
+    plot_degradation_results(results, filename=args.output, ncols=args.ncols, nrows=args.nrows)
     print(f"Result output: '{args.output}'")
 
 

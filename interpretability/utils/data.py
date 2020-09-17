@@ -72,4 +72,4 @@ def get_imagenet_loader(imagenet_dir, batch_size, normalize=True, shuffle=False,
     else:
         sampler = PartialSampler.from_state_dict(image_data, sampler_state, verbose=verbose)
 
-    return DataLoader(image_data, batch_size=batch_size, shuffle=shuffle, sampler=sampler)
+    return DataLoader(image_data, sampler=sampler, batch_size=batch_size, pin_memory=True, num_workers=4)

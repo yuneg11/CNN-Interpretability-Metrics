@@ -8,7 +8,7 @@ import torch
 sys.path.append(os.getcwd())
 
 from interpretability.methods import *
-from interpretability.metrics import degradation
+from interpretability.metrics.degradation import evaluate, Checkpointer
 
 from interpretability.utils.data import get_imagenet_loader
 from interpretability.utils.models import get_model, models_list
@@ -38,22 +38,21 @@ def main(raw_args):
         if args.load_checkpoint:
             filenames = [f for f in os.listdir(args.save_dir) if f.endswith(".pt") and f"{args.model_name}-{method_name}-" in f]
             if len(filenames) == 0:
-                checkpointer = degradation.Checkpointer(checkpoint_prefix)
+                checkpointer = Checkpointer(checkpoint_prefix)
                 print(f"Cannot find checkpoint for {method_name}")
             else:
-                checkpointer = degradation.Checkpointer(checkpoint_prefix, init_file=f"{args.save_dir}/{filenames[0]}")
+                checkpointer = Checkpointer(checkpoint_prefix, init_file=f"{args.save_dir}/{filenames[0]}")
         else:
-            checkpointer = degradation.Checkpointer(checkpoint_prefix)
+            checkpointer = Checkpointer(checkpoint_prefix)
 
-        # sampler_state = {"idx_cursor": 0, "idx_end": 16*10}
-        sampler_state = None
+        sampler_state = None # {"idx_cursor": 0, "idx_end": 16*10} # To limit samples
         data_loader = get_imagenet_loader(args.imagenet_dir, batch_size=args.batch_size, normalize=True, shuffle=False, sampler_state=sampler_state)
 
         init_kwargs = {}
         attribution = eval(method_name)(model, **init_kwargs, attribute_kwargs={})
 
-        morf, lerf = degradation.evaluate(attribution, data_loader, tile_size=14, baseline=args.baseline,
-                                          perturb_stride=5, checkpointer=checkpointer, reduce_mode=args.reduce)
+        morf, lerf = evaluate(attribution, data_loader, tile_size=14, baseline=args.baseline,
+                              perturb_stride=5, checkpointer=checkpointer, reduce_mode=args.reduce)
 
         if checkpointer is not None:
             checkpointer.save(morf, lerf, filename=f"{checkpoint_prefix}.pt")
