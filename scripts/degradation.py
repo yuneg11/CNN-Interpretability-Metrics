@@ -37,7 +37,7 @@ def main(raw_args):
         checkpoint_prefix = f"{args.save_dir}/{args.model_name}-{method_name}"
         if args.load_checkpoint:
             filenames = [f for f in os.listdir(args.save_dir) if f.endswith(".pt") and f"{args.model_name}-{method_name}-" in f]
-            if len(filenames) == 0:
+            if not filenames:
                 checkpointer = Checkpointer(checkpoint_prefix)
                 print(f"Cannot find checkpoint for {method_name}")
             else:

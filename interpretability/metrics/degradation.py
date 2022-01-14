@@ -35,9 +35,8 @@ class Checkpointer:
             "sampler_state": sampler_state,
         }, filename)
 
-        if self.prev_filename is not None:
-            if os.path.exists(self.prev_filename):
-                os.remove(self.prev_filename)
+        if self.prev_filename is not None and os.path.exists(self.prev_filename):
+            os.remove(self.prev_filename)
 
         self.prev_filename = filename
 

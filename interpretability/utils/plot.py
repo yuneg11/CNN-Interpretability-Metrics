@@ -13,7 +13,7 @@ def plot_images(images_dict, filename=None, nrows=None, ncols=None, figsize=None
         nrows = math.ceil(fig_num / ncols)
     elif ncols is not None and nrows is None:
         nrows = math.ceil(fig_num / ncols)
-    elif ncols is None and nrows is not None:
+    elif ncols is None:
         ncols = math.ceil(fig_num / nrows)
 
     if figsize is None:
@@ -56,7 +56,7 @@ def plot_degradation_results(results_dict, filename=None, ncols=None, nrows=None
         nrows = math.ceil(fig_num / ncols)
     elif ncols is not None and nrows is None:
         nrows = math.ceil(fig_num / ncols)
-    elif ncols is None and nrows is not None:
+    elif ncols is None:
         ncols = math.ceil(fig_num / nrows)
 
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(4 * ncols, 4 * nrows), constrained_layout=True, squeeze=False)
